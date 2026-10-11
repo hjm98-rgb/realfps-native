@@ -4,16 +4,15 @@ options:
   deploymentTarget:
     iOS: "15.0"
   createIntermediateGroups: true
-settings:
-  base:
-    CODE_SIGNING_ALLOWED: NO
 targets:
   RealFPS:
     type: application
     platform: iOS
     deploymentTarget: "15.0"
     sources:
-      - path: 3DGame
+      - AppDelegate.swift
+      - GameScene.swift
+      - GameViewController.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cert.account.t260901214911

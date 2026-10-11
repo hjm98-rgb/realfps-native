@@ -25,12 +25,18 @@ jobs:
         run: |
           set -euxo pipefail
           echo "$P12_BASE64" | base64 --decode > /tmp/sign.p12
-          security create-keychain -p "" build.keychain
+          # security import 对这份 p12 有兼容问题(MAC verification failed)，
+          # 但 openssl 能用密码 1 解开，所以改用 openssl 抽出无加密 PEM 再导入钥匙串
+          openssl pkcs12 -in /tmp/sign.p12 -passin pass:1 -nokeys -out /tmp/cert.pem
+          openssl pkcs12 -in /tmp/sign.p12 -passin pass:1 -nodes -nocerts -out /tmp/key.pem
+          openssl x509 -in /tmp/cert.pem -noout -subject
+          KEYCHAIN_PW=runner
+          security create-keychain -p "$KEYCHAIN_PW" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          # 证书密码为 1（已验证），直接写死，避免密钥表单取值异常
-          security import /tmp/sign.p12 -k build.keychain -P "1" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PW" build.keychain
+          security import /tmp/cert.pem -k build.keychain -T /usr/bin/codesign
+          security import /tmp/key.pem -k build.keychain -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" build.keychain
           security list-keychains -d user -s build.keychain
           security find-identity -v -p codesigning build.keychain
 

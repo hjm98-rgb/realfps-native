@@ -1,5 +1,5 @@
 # 云端打包原生 IPA：用你的证书签名（Ad-Hoc 分发）
-# 需要 GitHub Secrets：IOS_P12_BASE64 / IOS_P12_PASSWORD / IOS_MOBILEPROVISION_BASE64
+# Secrets：IOS_P12_BASE64 / IOS_P12_PASSWORD / IOS_MOBILEPROVISION_BASE64
 name: 云打包IPA
 
 on:
@@ -29,9 +29,10 @@ jobs:
           security create-keychain -p "" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "" build.keychain
-          security import /tmp/sign.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security import /tmp/sign.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
           security list-keychains -d user -s build.keychain
+          security find-identity -v -p codesigning build.keychain
 
       - name: 安装描述文件
         env:
@@ -40,18 +41,11 @@ jobs:
           set -euxo pipefail
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           echo "$MP_BASE64" | base64 --decode > "$HOME/Library/MobileDevice/Provisioning Profiles/realfps.mobileprovision"
-
-      - name: 解析签名身份与描述文件 UUID
-        id: sign
-        run: |
-          set -euxo pipefail
-          IDENTITY=$(security find-identity -v -p codesigning build.keychain | grep -oE 'Apple (Developer|Distribution): .*' | head -1 | sed -E 's/^[0-9A-F]*" //' | sed 's/"//g' | cut -d'(' -f1 | sed 's/ *$//')
-          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
-          UUID=$(security cms -D -i "$HOME/Library/MobileDevice/Provisioning Profiles/realfps.mobileprovision" | plutil -extract UUID raw -)
-          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+          ls -lh "$HOME/Library/MobileDevice/Provisioning Profiles/realfps.mobileprovision"
 
       - name: 编译并签名（原生）
         run: |
+          set -euxo pipefail
           xcodebuild \
             -project RealFPS.xcodeproj \
             -scheme RealFPS \
@@ -60,13 +54,13 @@ jobs:
             -derivedDataPath build \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=2TAD594A66 \
-            PRODUCT_BUNDLE_IDENTIFIER=com.cert.account.t260901214911 \
-            CODE_SIGN_IDENTITY="${{ steps.sign.outputs.identity }}" \
-            PROVISIONING_PROFILE_SPECIFIER="${{ steps.sign.outputs.uuid }}" \
+            CODE_SIGN_IDENTITY="Apple Distribution: Terry Peppers (2TAD594A66)" \
+            PROVISIONING_PROFILE_SPECIFIER="f34bc930-4015-4dea-94f1-6be9ac79879a" \
             build
 
       - name: 打包 IPA
         run: |
+          set -euxo pipefail
           mkdir -p build/ipa/Payload
           cp -R build/Build/Products/Release-iphoneos/RealFPS.app build/ipa/Payload/
           cd build/ipa && zip -qry ../../RealFPS.ipa Payload && cd ../..

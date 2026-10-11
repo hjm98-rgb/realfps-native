@@ -80,7 +80,7 @@ final class Game: NSObject, SCNSceneRendererDelegate {
         let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 320
         scene.rootNode.addChildNode(ambient)
         let sun = SCNNode(); sun.light = SCNLight(); sun.light?.type = .directional
-        sun.light?.castsShadow = true; sun.light?.shadowMapSize = CGSize(width: 4096, height: 4096); sun.light?.shadowFar = 600
+        sun.light?.castsShadow = true; sun.light?.shadowMapSize = CGSize(width: 4096, height: 4096); sun.light?.zFar = 3000
         sun.position = SCNVector3(80, 160, -60); sun.look(at: SCNVector3Zero)
         scene.rootNode.addChildNode(sun)
 
@@ -96,7 +96,8 @@ final class Game: NSObject, SCNSceneRendererDelegate {
         // 空气墙：四个方向，放在地图边界外很远（不可见，阻挡越界）
         let wallGeo = SCNBox(width: CGFloat(boundary * 2), height: 200, length: 4, chamferRadius: 0)
         wallGeo.firstMaterial?.diffuse.contents = UIColor.clear
-        wallGeo.firstMaterial?.writeToScreen = false
+        wallGeo.firstMaterial?.transparency = 0
+        wallGeo.firstMaterial?.writesToDepthBuffer = false
         wallGeo.firstMaterial?.isDoubleSided = false
         for (dir, x, z) in [(1.0, boundary + 2, 0.0), (1.0, -(boundary + 2), 0.0), (1.0, 0.0, boundary + 2), (1.0, 0.0, -(boundary + 2))] {
             _ = dir
@@ -241,8 +242,8 @@ final class Game: NSObject, SCNSceneRendererDelegate {
         var dir = SCNVector3(0, 0, -1)
         dir = normalize(cameraNode.convertVector(dir, to: scene.rootNode))
         let hit = scene.rootNode.hitTestWithSegment(from: origin, to: origin + dir * 300, options: nil).first
-        if let h = hit, let n = h.node, n.name == "enemy",
-           let idx = enemies.firstIndex(where: { $0.node === n }) {
+        if let h = hit, h.node.name == "enemy",
+           let idx = enemies.firstIndex(where: { $0.node === h.node }) {
             killEnemy(at: idx)
         }
         onHUD?()
@@ -296,7 +297,7 @@ final class Game: NSObject, SCNSceneRendererDelegate {
         }
 
         if fireHeld && CACurrentMediaTime() >= nextFire { fire() }
-        if reloading { reloadTime -= dt; if reloadTime <= 0 { reloading = false; ammo = magSize; onHUD?() } }
+        if reloading { reloadTime -= TimeInterval(dt); if reloadTime <= 0 { reloading = false; ammo = magSize; onHUD?() } }
 
         updateEnemies(dt: dt)
         if enemies.isEmpty { waveCheck() }

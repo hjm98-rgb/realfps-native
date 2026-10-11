@@ -22,14 +22,14 @@ jobs:
       - name: 导入签名证书 (P12)
         env:
           P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
-          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
         run: |
           set -euxo pipefail
           echo "$P12_BASE64" | base64 --decode > /tmp/sign.p12
           security create-keychain -p "" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "" build.keychain
-          security import /tmp/sign.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          # 证书密码为 1（已验证），直接写死，避免密钥表单取值异常
+          security import /tmp/sign.p12 -k build.keychain -P "1" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
           security list-keychains -d user -s build.keychain
           security find-identity -v -p codesigning build.keychain
